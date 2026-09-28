@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minimal Photo Booth</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f9f9f9;
+  --card: #ffffff;
+  --ink: #111111;
+  --highlight: #111111;
+  --mut: #888888;
+  --border: #e0e0e0;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111111; --card: #1a1a1a; --ink: #ffffff; --highlight: #ffffff; --mut: #888888; --border: #333333;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Space Mono", monospace;
+  font-size: 14px;
+  display: flex;
+  justify-content: center;
+}
+main {
+  width: 100%; max-width: 480px;
+  padding: 24px 20px 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.scr { display: none; width: 100%; flex-direction: column; align-items: center; gap: 16px; }
+.scr.on { display: flex; }
+h1 { font-size: 24px; margin: 0; font-weight: 700; letter-spacing: -1px; text-transform: uppercase; }
+h2 { font-size: 14px; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--mut); }
+p.subtitle { color: var(--mut); margin: 0 0 20px 0; font-size: 12px; }
+
+.card {
+  width: 100%; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+.pill {
+  display: flex; width: 100%; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--bg); padding: 4px;
+}
+.pill button {
+  flex: 1; border: 0; background: none; color: var(--mut);
+  font: inherit; font-weight: 700; padding: 10px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+}
+.pill button.on { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+.go {
+  width: 100%; height: 50px; border-radius: 8px; background: var(--highlight);
+  color: var(--bg); border: none; font: inherit; font-weight: 700; font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+}
+.go:active { transform: scale(0.98); }
+.go:disabled { opacity: 0.5; pointer-events: none; }
+
+.back {
+  align-self: flex-start; background: none; border: 0; color: var(--mut);
+  font: inherit; cursor: pointer; padding: 4px 0; transition: 0.2s;
+}
+.back:hover { color: var(--ink); }
+
+.prev { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 300px; }
+.prev canvas { max-width: 100%; max-height: 350px; width: auto; height: auto; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1)); }
+.arr { background: none; border: 0; color: var(--mut); font-size: 20px; cursor: pointer; padding: 10px; transition: 0.2s;}
+.arr:hover { color: var(--ink); }
+
+.dots { display: flex; gap: 8px; justify-content: center; margin-top: -8px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: 0.2s; }
+.dots i.on { background: var(--ink); }
+
+.foot { font-size: 12px; color: var(--mut); text-align: center; }
+
+.cam { position: relative; width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 8px; overflow: hidden; }
+.cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.cnt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 100px; font-weight: 700; color: #fff; text-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+
+.thumbs { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+.thumbs canvas { width: 50px; height: 66px; object-fit: cover; border-radius: 4px; background: var(--card); border: 1px solid var(--border); }
+
+.up {
+  width: 100%; padding: 40px 20px; text-align: center; border: 1px dashed var(--mut);
+  border-radius: 8px; cursor: pointer; display: block; font-weight: bold; background: var(--card);
+  transition: 0.2s;
+}
+.up:hover { border-color: var(--ink); }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.chip { border: 1px solid var(--border); background: var(--bg); color: var(--mut); font: inherit; padding: 8px 16px; border-radius: 30px; cursor: pointer; transition: 0.2s; }
+.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.slot { width: 100%; display: flex; justify-content: center; overflow: hidden; padding-top: 10px; background: linear-gradient(var(--bg) 0 0) top/100% 12px no-repeat; border-top: 2px solid var(--ink); }
+.slot img { max-width: 80%; max-height: 60vh; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: out 2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes out { from { transform: translateY(-105%); } to { transform: translateY(0); } }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
+.btn { flex: 1; min-width: 140px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font: inherit; font-weight: 700; padding: 14px 20px; border-radius: 8px; cursor: pointer; text-align: center; transition: 0.2s; }
+.btn.alt { background: var(--card); color: var(--ink); border: 1px solid var(--border); }
+.btn.small { padding: 8px 16px; font-size: 12px; flex: none; min-width: auto; margin-top: 10px;}
+.btn:hover { opacity: 0.9; }
+
+.msg { color: var(--ink); text-align: center; font-size: 12px; min-height: 16px; margin-top: 5px; }
+</style>
+</head>
+<body>
+<main>
+
+<section class="scr on" id="s0">
+  <svg viewBox="0 0 100 100" width="120" style="margin: 40px 0 20px;">
+    <rect x="15" y="25" width="70" height="50" rx="6" fill="none" stroke="currentColor" stroke-width="4"/>
+    <circle cx="50" cy="50" r="14" fill="none" stroke="currentColor" stroke-width="4"/>
+    <circle cx="75" cy="35" r="3" fill="currentColor"/>
+    <rect x="40" y="15" width="20" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="4"/>
+  </svg>
+  <h1>PHOTO BOOTH</h1>
+  <p class="subtitle">Minimal Edition</p>
+  <button class="go" onclick="show(1)">Enter</button>
+</section>
+
+<section class="scr" id="s1">
+ <button class="back" onclick="show(0)">← Back</button>
+ <div class="pill">
+     <button id="mCam" class="on" onclick="setMode('cam')">Camera</button>
+     <button id="mUp" onclick="setMode('up')">Upload</button>
+ </div>
+ <h2>Template</h2>
+ <div class="card prev">
+     <button class="arr" onclick="step(-1)">◀</button>
+     <canvas id="pv"></canvas>
+     <button class="arr" onclick="step(1)">▶</button>
+ </div>
+ <div class="dots" id="dots"></div>
+ <div class="foot" id="tname"></div>
+ <button class="go" onclick="next()">Next</button>
+</section>
+
+<section class="scr" id="s2">
+ <button class="back" onclick="stopCam();show(1)">← Back</button>
+ 
+ <div id="camBox" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:12px">
+  <div class="cam"><video id="vid" playsinline muted></video><div class="cnt" id="cnt"></div><div class="flash" id="fl"></div></div>
+  <div class="thumbs" id="camThumbs"></div>
+  <button class="go" id="shoot" onclick="shoot()">Start</button>
+ </div>
+
+ <div id="upBox" style="width:100%;display:none;flex-direction:column;align-items:center;gap:12px">
+  <label class="up">
+      <input id="file" type="file" accept="image/*" multiple style="display:none" onchange="picked(this.files)">
+      Tap to upload photo(s)<br><br><span class="foot" id="need" style="color:var(--ink)"></span>
+  </label>
+  <div class="thumbs" id="upThumbs"></div>
+  <button class="btn alt small" id="clearBtn" onclick="clearUploads()">Clear Photos</button>
+ </div>
+ 
+ <div class="msg" id="msg"></div>
+</section>
+
+<section class="scr" id="s3">
+ <h2>Your photo is ready</h2>
+ <div class="slot"><img id="out" alt="result"></div>
+ 
+ <!-- ส่วนกรองสี -->
+ <div class="chips" id="fx"></div>
+ 
+ <!-- ระบบปรับขนาดภาพใหม่ -->
+ <div class="chips" style="margin-top: 8px;">
+    <button class="chip on" id="fit_cover" onclick="setFit('cover')">Fill Frame</button>
+    <button class="chip" id="fit_contain" onclick="setFit('contain')">Fit Image</button>
+ </div>
+
+ <div class="row" style="margin-top: 10px;">
+     <button class="btn" onclick="save()">Save Photo</button>
+ </div>
+ <div class="row">
+     <button class="btn alt" onclick="show(1)">Change</button>
+     <button class="btn alt" onclick="again()">Retake</button>
+ </div>
+ <div class="foot" id="msg2" style="margin-top: 10px;">Tip: long-press the image to save on mobile.</div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const FONT='"Space Mono", monospace';
+const INK='#111111';
+
+// กำหนด State ให้เพิ่ม fit: 'cover' เป็นค่าเริ่มต้น
+const st={t:0,mode:'cam',shots:[],fx:'color',fit:'cover',fmt:'png',stream:null};
+const FX={color:'Color',bw:'B/W',sepia:'Sepia'};
+
+function rr(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r)}
+function cover(c,img,x,y,w,h,r){
+  c.save();rr(c,x,y,w,h,r);c.clip();
+  if(!img){
+    c.fillStyle='#f0f0f0';c.fillRect(x,y,w,h);
+    c.fillStyle='#ccc';c.font='700 '+Math.min(w,h)/4+'px '+FONT;
+    c.textAlign='center';c.textBaseline='middle';c.fillText('+',x+w/2,y+h/2)
+  }
+  else{
+    // ถ้าย่อให้เห็นทั้งภาพ ให้เทพื้นหลังสีขาวกันเป็นช่องว่าง
+    if(st.fit === 'contain') {
+        c.fillStyle = '#ffffff';
+        c.fillRect(x, y, w, h);
+    }
+    // คำนวณสัดส่วนตามที่ผู้ใช้เลือก (Cover = Max, Contain = Min)
+    const s = st.fit === 'contain' ? Math.min(w/img.width, h/img.height) : Math.max(w/img.width, h/img.height);
+    const dw = img.width * s;
+    const dh = img.height * s;
+    c.drawImage(img, x + (w-dw)/2, y + (h-dh)/2, dw, dh);
+  }
+  c.restore()
+}
+function txt(c,t,x,y,size,color,al,wt){c.fillStyle=color;c.font=(wt||400)+' '+size+'px '+FONT;c.textAlign=al||'left';c.textBaseline='alphabetic';c.fillText(t,x,y)}
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}
+
+const T=[
+{n:'Minimal Receipt',w:900,h:1350,r:0,s:[[75,60,360,470],[465,60,360,470],[75,600,360,470],[465,600,360,470]],
+ bg(c){c.fillStyle='#ffffff';c.fillRect(0,0,900,1350);c.strokeStyle='#f0f0f0';c.lineWidth=1;for(let i=0;i<=900;i+=20){c.beginPath();c.moveTo(i,0);c.lineTo(i,1350);c.stroke()}for(let i=0;i<=1350;i+=20){c.beginPath();c.moveTo(0,i);c.lineTo(900,i);c.stroke()}
+  c.fillStyle='#eaeaea';this.s.forEach(s=>c.fillRect(s[0],s[1],s[2],s[3]))},
+ fg(c){
+  c.fillStyle='#ffffff';c.fillRect(75,1120,750,170);c.strokeStyle=INK;c.lineWidth=2;c.strokeRect(75,1120,750,170);
+  txt(c,'RECEIPT',100,1170,30,INK, 'left', 700);txt(c,stamp(),100,1210,20,INK);c.fillRect(100,1225,700,2);
+  txt(c,'TOTAL: $5.00',100,1265,24,INK,'left',700);
+  txt(c,'PHOTO BOOTH',800,1265,30,INK,'right',700);
+ }},
+{n:'Classic Polaroid',w:600,h:720,r:0,s:[[40,40,520,520]],
+ bg(c){
+  c.fillStyle='#ffffff'; c.fillRect(0,0,600,720);
+  c.strokeStyle='#eaeaea'; c.lineWidth=1; c.strokeRect(0,0,600,720);
+  c.fillStyle='#222'; c.fillRect(40,40,520,520);
+ },
+ fg(c){txt(c,'M O M E N T S',300,650,22,INK,'center',700);}},
+{n:'Clean Strip',w:600,h:1830,r:0,s:[[60,60,480,380],[60,470,480,380],[60,880,480,380],[60,1290,480,380]],
+ bg(c){c.fillStyle='#111111';c.fillRect(0,0,600,1830)},
+ fg(c){txt(c,'PHOTO BOOTH',300,1740,24,'#ffffff','center',700);txt(c,stamp(),300,1780,18,'#888888','center')}},
+{n:'Simple Grid',w:800,h:800,r:0,s:[[40,40,340,340],[420,40,340,340],[40,420,340,340],[420,420,340,340]],
+ bg(c){c.fillStyle='#ffffff';c.fillRect(0,0,800,800); c.strokeStyle='#eaeaea'; c.lineWidth=1; c.strokeRect(0,0,800,800);
+  c.fillStyle='#f5f5f5';this.s.forEach(s=>c.fillRect(s[0],s[1],s[2],s[3]))}},
+{n:'Editorial Layout',w:800,h:1200,r:0,s:[[100,100,600,420],[100,560,600,420]],
+ bg(c){c.fillStyle='#ffffff';c.fillRect(0,0,800,1200); c.strokeStyle='#eaeaea'; c.lineWidth=1; c.strokeRect(0,0,800,1200);
+  c.fillStyle='#f5f5f5';this.s.forEach(s=>c.fillRect(s[0],s[1],s[2],s[3]))},
+ fg(c){txt(c,'CAPTURED',400,1070,32,INK,'center',700); txt(c,stamp(),400,1110,18,'#888','center');}}
+];
+
+
+function show(n){document.querySelectorAll('.scr').forEach((e,i)=>e.classList.toggle('on',i===n));if(n===1)prev();scrollTo(0,0)}
+function setMode(m){st.mode=m;$('mCam').classList.toggle('on',m==='cam');$('mUp').classList.toggle('on',m==='up')}
+function render(cv,t,ph){cv.width=t.w;cv.height=t.h;const c=cv.getContext('2d');t.bg(c);t.s.forEach((s,i)=>cover(c,ph&&ph[i%ph.length],s[0],s[1],s[2],s[3],t.r));t.fg&&t.fg(c)}
+
+function prev(){
+  render($('pv'),T[st.t],null);
+  $('tname').textContent = T[st.t].n + ' (' + T[st.t].s.length + ' Shots)';$('dots').innerHTML=T.map((_,i)=>`<i class="${i===st.t?'on':''}" onclick="st.t=${i};prev()"></i>`).join('')
+}
+function step(d){st.t=(st.t+T.length+d)%T.length;prev()}
+
+$('fx').innerHTML=Object.entries(FX).map(([k,v])=>`<button class="chip ${k==='color'?'on':''}" data-k="${k}" onclick="setFx('${k}')">${v}</button>`).join('');
+
+function setFx(k){st.fx=k; [...$('fx').children].forEach(b=>b.classList.toggle('on',b.dataset.k===k)); build()}
+
+// ฟังก์ชันสลับโหมดภาพ Cover / Contain
+function setFit(m){
+    st.fit = m;
+    $('fit_cover').classList.toggle('on', m === 'cover');$('fit_contain').classList.toggle('on', m === 'contain');
+    build(); // สั่งให้วาดภาพใหม่ทันที
+}
+
+function need(){return T[st.t].s.length}
+
+function updateThumbs(id) {
+    const n = need();
+    const container = $(id);
+    if(!container) return;
+    container.innerHTML = '';
+    for(let i=0; i<n; i++) {
+        const c = document.createElement('canvas');
+        c.width = 50; c.height = 66;
+        const x = c.getContext('2d');
+        if(st.shots[i]) {
+            // เวลาวาดพรีวิวด้านล่างจะใช้ cover ตลอดเพื่อให้ช่องไม่แหว่ง
+            x.save(); rr(x,0,0,50,66,0); x.clip();
+            const s = Math.max(50/st.shots[i].width, 66/st.shots[i].height);
+            x.drawImage(st.shots[i], 0 + (50 - st.shots[i].width*s)/2, 0 + (66 - st.shots[i].height*s)/2, st.shots[i].width*s, st.shots[i].height*s);
+            x.restore();
+        } else {
+            x.fillStyle = '#eaeaea'; x.fillRect(0, 0, 50, 66);
+            x.fillStyle = '#aaaaaa'; x.font = '20px ' + FONT; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('+', 25, 33);
+        }
+        container.appendChild(c);
+    }
+}
+
+function clearUploads() {
+    st.shots = [];
+    updateThumbs('upThumbs');
+    $('need').textContent = 'Please select ' + need() + ' photo(s)';$('msg').textContent = '';
+}
+
+async function next(){
+  show(2); $('msg').textContent=''; st.shots=[]; 
+  $('camBox').style.display=st.mode==='cam'?'flex':'none';$('upBox').style.display=st.mode==='up'?'flex':'none';
+  
+  if(st.mode==='cam'){
+    updateThumbs('camThumbs');
+    try {
+      st.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1080}},audio:false});
+      $('vid').srcObject=st.stream; $('vid').play();
+    } catch(e) {
+      setMode('up'); $('camBox').style.display='none'; $('upBox').style.display='flex';$('msg').textContent='Camera unavailable. Please upload instead.';
+      updateThumbs('upThumbs');
+      $('need').textContent='Please select ' + need() + ' photo(s)';
+    }
+  } else {
+    updateThumbs('upThumbs');
+    $('need').textContent='Please select ' + need() + ' photo(s)';
+  }
+}
+
+function stopCam(){st.stream&&st.stream.getTracks().forEach(t=>t.stop());st.stream=null}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function shoot(){
+  const b=$('shoot'); b.disabled=true; st.shots=[]; updateThumbs('camThumbs');
+  for(let i=0; i<need(); i++){
+    for(let k=3; k>0; k--){ $('cnt').textContent=k; await wait(900); }$('cnt').textContent='';
+    const v=$('vid'), c=document.createElement('canvas'), s=Math.min(1,900/Math.max(v.videoWidth,v.videoHeight));
+    c.width=v.videoWidth*s; c.height=v.videoHeight*s;
+    const x=c.getContext('2d'); x.translate(c.width,0); x.scale(-1,1); x.drawImage(v,0,0,c.width,c.height);
+    
+    st.shots.push(c); 
+    updateThumbs('camThumbs');
+    
+    $('fl').style.opacity=1; await wait(100);$('fl').style.opacity=0; await wait(600)
+  }
+  b.disabled=false; stopCam(); build(); show(3)
+}
+
+function picked(fl){
+  const neededNow = need() - st.shots.length; 
+  const arr = [...fl].slice(0, neededNow);    
+  if(!arr.length) return;
+  
+  $('msg').textContent='Loading...';
+  Promise.all(arr.map(f=>new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej();
+    fr.onload=()=>{
+      const im=new Image(); im.onerror=()=>rej();
+      im.onload=()=>{
+        const s=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement('canvas');
+        c.width=im.width*s; c.height=im.height*s; c.getContext('2d').drawImage(im,0,0,c.width,c.height); res(c)
+      };
+      im.src=fr.result
+    };
+    fr.readAsDataURL(f)
+  })))
+  .then(a=>{
+    st.shots = st.shots.concat(a);
+    $('msg').textContent=''; 
+    updateThumbs('upThumbs');
+    
+    if (st.shots.length >= need()) {
+       build(); show(3);
+    } else {
+       const left = need() - st.shots.length;
+       $('need').textContent = 'Please select ' + left + ' more photo(s)';
+    }
+  })
+  .catch(()=>{ $('msg').textContent='Could not read file. Try JPG or PNG.'; });
+  $('file').value=''
+}
+
+function filt(cv){
+  if(st.fx==='color')return cv;
+  const c=document.createElement('canvas'); c.width=cv.width; c.height=cv.height;
+  const x=c.getContext('2d'); x.drawImage(cv,0,0);
+  const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+  for(let i=0;i<p.length;i+=4){
+    const g=.299*p[i]+.587*p[i+1]+.114*p[i+2];
+    if(st.fx==='bw'){p[i]=p[i+1]=p[i+2]=g}
+    else{p[i]=Math.min(255,g*1.07+18); p[i+1]=g*.95+8; p[i+2]=g*.75}
+  }
+  x.putImageData(d,0,0); return c
+}
+
+const out=document.createElement('canvas');
+function build(){
+  if(!st.shots.length)return;
+  render(out,T[st.t],st.shots.map(filt));
+  const o=$('out'); o.src=out.toDataURL('image/png');
+  o.style.animation='none'; o.offsetWidth; o.style.animation=''
+}
+
+function again(){next()}
+
+async function save(){
+  const type='image/png';
+  const name='minimal-photo-booth.png';
+  out.toBlob(b => {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download=name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, type, 0.95);
+}
+
+prev();
+</script>
+</body>
+</html>
